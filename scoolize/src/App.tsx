@@ -1,34 +1,142 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from 'react'
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import { supabase } from './lib/supabase'
+import Layout from './components/Layout/Layout'
+import { Login } from './components/Auth/Login'
+import { Register } from './components/Auth/Register'
+import { HomePage } from './pages/HomePage'
+import { StudentPage } from './pages/StudentPage'
+import { SchoolPage } from './pages/SchoolPage'
+import { Profile } from './types'
 
-function App() {
-  const [count, setCount] = useState(0)
+function ProtectedRoute({ 
+  user, 
+  profile, 
+  children 
+}: { 
+  user: any; 
+  profile: Profile | null; 
+  children: React.ReactNode 
+}) {
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    if (!user && location.pathname !== '/login' && location.pathname !== '/register') {
+      navigate('/login', { replace: true })
+    }
+  }, [user, navigate, location])
+
+  if (!user) {
+    return null
+  }
+
+  return <>{children}</>
+}
+
+function AuthRedirect({ user }: { user: any }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    if (user && (location.pathname === '/login' || location.pathname === '/register')) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, navigate, location])
+
+  return null
+}
+
+function AppRoutes() {
+  const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        loadProfile(session.user.id)
+      } else {
+        setLoading(false)
+      }
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        loadProfile(session.user.id)
+      } else {
+        setProfile(null)
+        setLoading(false)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const loadProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (data && !error) {
+      setProfile(data)
+    }
+    setLoading(false)
+  }
+
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh' 
+      }}>
+        Chargement...
+      </div>
+    )
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <Layout userEmail={user?.email}>
+      <AuthRedirect user={user} />
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute user={user} profile={profile}>
+              {profile?.role === 'student' ? (
+                <StudentPage userId={user.id} />
+              ) : profile?.role === 'school' ? (
+                <SchoolPage userId={user.id} />
+              ) : (
+                <div style={{ padding: '20px' }}>
+                  <h1>Profil incomplet</h1>
+                  <p>Votre profil n'a pas de rôle défini.</p>
+                </div>
+              )}
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </Layout>
+  )
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   )
 }
 
