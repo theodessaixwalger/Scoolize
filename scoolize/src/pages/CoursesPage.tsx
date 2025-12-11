@@ -9,15 +9,24 @@ export function CoursesPage() {
     const [programs, setPrograms] = useState<ProgramWithSchool[]>([])
     const [filteredPrograms, setFilteredPrograms] = useState<ProgramWithSchool[]>([])
     const [loading, setLoading] = useState(true)
+    const [availableRegions, setAvailableRegions] = useState<string[]>([])
     const [filters, setFilters] = useState<CourseFiltersState>({
         search: '',
         level: null,
+        region: null,
         minScore: 20,
     })
 
     useEffect(() => {
         fetchPrograms()
     }, [])
+
+    useEffect(() => {
+        if (programs.length > 0) {
+            const regions = Array.from(new Set(programs.map(p => p.schools?.location).filter(Boolean))) as string[]
+            setAvailableRegions(regions.sort())
+        }
+    }, [programs])
 
     useEffect(() => {
         applyFilters()
@@ -63,6 +72,11 @@ export function CoursesPage() {
             result = result.filter(p => p.level === filters.level)
         }
 
+        // Region filter
+        if (filters.region) {
+            result = result.filter(p => p.schools?.location === filters.region)
+        }
+
         // Score filter
         if (filters.minScore > 0) {
             result = result.filter(p => (p.min_average_score || 0) <= filters.minScore)
@@ -75,7 +89,11 @@ export function CoursesPage() {
         <Container size="xl" py="xl">
             <Title order={2} mb="xl">Formations disponibles</Title>
 
-            <CourseFilters filters={filters} onChange={setFilters} />
+            <CourseFilters
+                filters={filters}
+                onChange={setFilters}
+                availableRegions={availableRegions}
+            />
 
             <Text size="sm" c="dimmed" mb="md" mt="xl">
                 {filteredPrograms.length} formation{filteredPrograms.length > 1 ? 's' : ''} trouvée{filteredPrograms.length > 1 ? 's' : ''}

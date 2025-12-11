@@ -17,15 +17,17 @@ import { useState } from 'react'
 export interface CourseFiltersState {
     search: string
     level: string | null
+    region: string | null
     minScore: number
 }
 
 interface CourseFiltersProps {
     filters: CourseFiltersState
     onChange: (filters: CourseFiltersState) => void
+    availableRegions: string[]
 }
 
-export function CourseFilters({ filters, onChange }: CourseFiltersProps) {
+export function CourseFilters({ filters, onChange, availableRegions }: CourseFiltersProps) {
     const [opened, setOpened] = useState(false)
 
     const handleChange = (key: keyof CourseFiltersState, value: any) => {
@@ -59,18 +61,10 @@ export function CourseFilters({ filters, onChange }: CourseFiltersProps) {
                             label="Niveau d'études"
                             placeholder="Sélectionner un niveau"
                             data={[
-<<<<<<< HEAD
                                 { value: 'Master', label: 'Master' },
                                 { value: 'Bachelor', label: 'Bachelor' },
                                 { value: 'BTS', label: 'BTS' },
                                 { value: 'Doctorat', label: 'Doctorat' },
-=======
-                                { value: 'Licence', label: 'Licence' },
-                                { value: 'Master', label: 'Master' },
-                                { value: 'Bachelor', label: 'Bachelor' },
-                                { value: 'BTS', label: 'BTS' },
-                                { value: 'BUT', label: 'BUT' },
->>>>>>> 17f421c61dd62de5977b118e8bf06fe1911dbe4c
                             ]}
                             value={filters.level}
                             onChange={(value) => handleChange('level', value)}
