@@ -101,14 +101,24 @@ export default function Layout({ children, userEmail, profile }: LayoutProps) {
           Accueil
         </Button>
         {userEmail && (
-          <Button
-            variant="subtle"
-            fullWidth
-            justify="flex-start"
-            onClick={() => navigate('/dashboard')}
-          >
-            Tableau de bord
-          </Button>
+          <>
+            <Button
+              variant="subtle"
+              fullWidth
+              justify="flex-start"
+              onClick={() => navigate('/dashboard')}
+            >
+              Tableau de bord
+            </Button>
+            <Button
+              variant="subtle"
+              fullWidth
+              justify="flex-start"
+              onClick={() => navigate('/courses')}
+            >
+              Formations disponibles
+            </Button>
+          </>
         )}
       </AppShell.Navbar>
 

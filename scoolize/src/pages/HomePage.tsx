@@ -1,7 +1,7 @@
 import { Paper, Title, Text, Button, Group, Stack } from '@mantine/core'
 import { useNavigate } from 'react-router-dom'
 
-export function HomePage() {
+export function HomePage({ user }: { user: any }) {
   const navigate = useNavigate()
 
   return (
@@ -14,14 +14,16 @@ export function HomePage() {
         avec les formations qui vous correspondent
       </Text>
 
-      <Group mt="xl">
-        <Button size="lg" onClick={() => navigate('/login')}>
-          Connexion
-        </Button>
-        <Button size="lg" variant="outline" onClick={() => navigate('/register')}>
-          Inscription
-        </Button>
-      </Group>
+      {!user && (
+        <Group mt="xl">
+          <Button size="lg" onClick={() => navigate('/login')}>
+            Connexion
+          </Button>
+          <Button size="lg" variant="outline" onClick={() => navigate('/register')}>
+            Inscription
+          </Button>
+        </Group>
+      )}
 
       <Paper withBorder shadow="md" p="xl" radius="md" mt={40} maw={800}>
         <Title order={3} mb="md">

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Tabs, Container, Title, Text, Loader, Center } from '@mantine/core'
-import { ProgramForm } from '@/components/School/ProgramForm'
+import { SchoolProgramsList } from '@/components/School/SchoolProgramsList'
 import { SchoolDashboard } from '@/components/School/SchoolDashboard'
 import { supabase } from '@/lib/supabase'
 import { notifications } from '@mantine/notifications'
@@ -13,20 +13,21 @@ export function SchoolPage({ userId }: SchoolPageProps) {
   const [schoolId, setSchoolId] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const isLoading = useRef(false)
+  const isLoading = useRef(false) // ← EMPÊCHE LE DOUBLE CHARGEMENT
 
   useEffect(() => {
-    if (isLoading.current) return
+    if (isLoading.current) return // ← SI DÉJÀ EN COURS, ON SORT
     loadSchool()
   }, [userId])
 
   const loadSchool = async () => {
-    if (isLoading.current) return
+    if (isLoading.current) return // ← SÉCURITÉ SUPPLÉMENTAIRE
     isLoading.current = true
 
     try {
       console.log('🔍 Recherche de l\'école pour userId:', userId)
 
+      // 1. Chercher la fiche école (SANS .single() pour voir combien il y en a)
       const { data: schoolData, error: schoolError } = await supabase
         .from('schools')
         .select('id, name')
@@ -39,12 +40,14 @@ export function SchoolPage({ userId }: SchoolPageProps) {
         throw schoolError
       }
 
+      // 2. Si plusieurs fiches, on prend la première et on supprime les autres
       if (schoolData && schoolData.length > 1) {
         console.warn('⚠️ Plusieurs fiches école détectées, nettoyage...')
-        
+
         const mainSchool = schoolData[0]
         const duplicateIds = schoolData.slice(1).map(s => s.id)
 
+        // Supprimer les doublons
         const { error: deleteError } = await supabase
           .from('schools')
           .delete()
@@ -61,13 +64,16 @@ export function SchoolPage({ userId }: SchoolPageProps) {
           color: 'yellow',
         })
       }
+      // 3. Si une seule fiche, parfait
       else if (schoolData && schoolData.length === 1) {
         setSchoolId(schoolData[0].id)
         console.log('✅ École trouvée:', schoolData[0].id)
       }
+      // 4. Si aucune fiche, on la crée
       else if (!schoolData || schoolData.length === 0) {
         console.log('⚠️ Aucune fiche école, création...')
 
+        // Récupérer le nom du profil
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name')
@@ -76,6 +82,7 @@ export function SchoolPage({ userId }: SchoolPageProps) {
 
         console.log('👤 Profile:', profile)
 
+        // Créer la fiche école
         const { data: newSchool, error: createError } = await supabase
           .from('schools')
           .insert({
@@ -89,6 +96,7 @@ export function SchoolPage({ userId }: SchoolPageProps) {
         console.log('❌ Create error:', createError)
 
         if (createError) {
+          // Si erreur de conflit (la fiche existe déjà), on recharge
           if (createError.code === '23505') {
             console.log('⚠️ Fiche déjà créée, rechargement...')
             const { data: existingSchool } = await supabase
@@ -96,7 +104,7 @@ export function SchoolPage({ userId }: SchoolPageProps) {
               .select('id')
               .eq('profile_id', userId)
               .single()
-            
+
             if (existingSchool) {
               setSchoolId(existingSchool.id)
             }
@@ -163,7 +171,7 @@ export function SchoolPage({ userId }: SchoolPageProps) {
       <Tabs defaultValue="dashboard">
         <Tabs.List>
           <Tabs.Tab value="dashboard">Tableau de bord</Tabs.Tab>
-          <Tabs.Tab value="programs">Créer une formation</Tabs.Tab>
+          <Tabs.Tab value="programs">Mes formations</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="dashboard" pt="xl">
@@ -171,7 +179,7 @@ export function SchoolPage({ userId }: SchoolPageProps) {
         </Tabs.Panel>
 
         <Tabs.Panel value="programs" pt="xl">
-          <ProgramForm schoolId={schoolId} />
+          <SchoolProgramsList schoolId={schoolId} />
         </Tabs.Panel>
       </Tabs>
     </Container>

@@ -135,7 +135,7 @@ export function ProgramForm({ schoolId, program, onSuccess, onCancel }: ProgramF
         <Group grow mt="md">
           <Select
             label="Niveau"
-            data={['Licence', 'Master', 'Doctorat', 'BTS', 'DUT']}
+            data={['Licence', 'Master', 'Doctorat', 'BTS', 'BUT']}
             value={level}
             onChange={setLevel}
           />

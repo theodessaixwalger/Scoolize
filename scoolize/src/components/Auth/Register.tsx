@@ -9,8 +9,10 @@ import {
   Container, 
   Radio, 
   Group,
-  Checkbox
+  Checkbox,
+  Alert
 } from '@mantine/core'
+import { IconAlertCircle } from '@tabler/icons-react'
 import { notifications } from '@mantine/notifications'
 import { supabase } from '@/lib/supabase'
 import { UserRole } from '@/types'
@@ -20,6 +22,7 @@ export function Register() {
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<UserRole>('student')
+  const [schoolCode, setSchoolCode] = useState('')
   const [gdprConsent, setGdprConsent] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -33,6 +36,29 @@ export function Register() {
         color: 'red',
       })
       return
+    }
+
+    // Vérification du code école
+    if (role === 'school') {
+      const validCode = import.meta.env.VITE_SCHOOL_REGISTRATION_CODE
+      
+      if (!schoolCode) {
+        notifications.show({
+          title: 'Code requis',
+          message: 'Le code d\'enregistrement école est obligatoire',
+          color: 'red',
+        })
+        return
+      }
+
+      if (schoolCode !== validCode) {
+        notifications.show({
+          title: 'Code invalide',
+          message: 'Le code d\'enregistrement école est incorrect',
+          color: 'red',
+        })
+        return
+      }
     }
 
     setLoading(true)
@@ -60,9 +86,17 @@ export function Register() {
         color: 'green',
       })
 
+      // Réinitialiser le formulaire
+      setEmail('')
+      setPassword('')
+      setFullName('')
+      setSchoolCode('')
+      setRole('student')
+      setGdprConsent(false)
+
       // Rediriger vers la page de connexion ou autre
       // window.location.href = '/login'
-      
+
     } catch (error: any) {
       console.error('Erreur complète:', error)
       notifications.show({
@@ -96,9 +130,33 @@ export function Register() {
             </Group>
           </Radio.Group>
 
+          {role === 'school' && (
+            <>
+              <Alert 
+                icon={<IconAlertCircle size={16} />} 
+                title="Code d'enregistrement requis" 
+                color="blue"
+                mt="md"
+              >
+                Un code spécial est nécessaire pour créer un compte école. 
+                Contactez l'administrateur pour l'obtenir.
+              </Alert>
+
+              <PasswordInput
+                label="Code d'enregistrement école"
+                placeholder="Entrez le code fourni par l'administrateur"
+                required
+                mt="md"
+                value={schoolCode}
+                onChange={(e) => setSchoolCode(e.currentTarget.value)}
+                description="Code confidentiel pour les établissements"
+              />
+            </>
+          )}
+
           <TextInput
             label="Nom complet"
-            placeholder="Votre nom"
+            placeholder={role === 'school' ? "Nom de l'école" : "Votre nom"}
             required
             mt="md"
             value={fullName}
@@ -134,7 +192,13 @@ export function Register() {
             mt="md"
           />
 
-          <Button fullWidth mt="xl" type="submit" loading={loading} disabled={!gdprConsent}>
+          <Button 
+            fullWidth 
+            mt="xl" 
+            type="submit" 
+            loading={loading} 
+            disabled={!gdprConsent}
+          >
             S'inscrire
           </Button>
         </form>

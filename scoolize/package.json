@@ -9,8 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "@mantine/core": "^8.3.10",
+    "@mantine/dropzone": "^8.3.10",
+    "@mantine/hooks": "^8.3.10",
+    "@mantine/notifications": "^8.3.10",
+    "@supabase/supabase-js": "^2.84.0",
+    "@tabler/icons-react": "^3.35.0",
+    "lucide-react": "^0.554.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.2",
+    "tesseract.js": "^6.0.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.27",

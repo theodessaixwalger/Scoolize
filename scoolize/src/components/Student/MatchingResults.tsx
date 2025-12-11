@@ -1,165 +1,282 @@
 import { useEffect, useState } from 'react'
-import { 
-  Paper, 
-  Title, 
-  Text, 
-  Badge, 
-  Group, 
-  Stack, 
-  Button, 
-  Progress,
-  List
+import {
+  Paper,
+  Title,
+  Text,
+  Badge,
+  Group,
+  Stack,
+  Button,
+  Loader,
+  Alert,
+  SimpleGrid,
+  RingProgress,
+  Accordion,
+  List,
+  ThemeIcon,
 } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
+import {
+  IconAlertCircle,
+  IconCheck,
+  IconX,
+  IconSchool,
+  IconMapPin,
+} from '@tabler/icons-react'
 import { supabase } from '@/lib/supabase'
-import { MatchingProgram } from '@/types'
 
-interface MatchingResultsProps {
-  userId: string
+// ✅ INTERFACES TYPÉES
+interface MatchDetail {
+  criterion: string
+  required?: number
+  obtained?: number
+  status: 'passed' | 'failed'
+  points: number
 }
 
-export function MatchingResults({ userId }: MatchingResultsProps) {
-  const [programs, setPrograms] = useState<MatchingProgram[]>([])
+interface MissingRequirement {
+  criterion: string
+  required?: number
+  obtained?: number
+}
+
+interface MatchData {
+  score: number
+  total_points: number
+  obtained_points: number
+  details: MatchDetail[]
+  missing_requirements: MissingRequirement[]
+}
+
+interface ProgramMatch {
+  program_id: string
+  program_name: string
+  school_name: string
+  location: string
+  match_score: number
+  is_eligible: boolean
+  match_data: MatchData
+}
+
+interface MatchingResultsProps {
+  studentId: string
+  onApply: (programId: string, matchScore: number) => void
+}
+
+export function MatchingResults({ studentId, onApply }: MatchingResultsProps) {
+  const [programs, setPrograms] = useState<ProgramMatch[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadMatchingPrograms()
-  }, [userId])
+    loadMatches()
+  }, [studentId])
 
-  const loadMatchingPrograms = async () => {
-    setLoading(true)
+  const loadMatches = async () => {
     try {
-      const { data, error } = await supabase.rpc('get_matching_programs', {
-        student_uuid: userId,
-      })
+      setLoading(true)
+      setError(null)
 
-      if (error) throw error
+      const { data, error: matchError } = await supabase
+        .from('student_program_matches')
+        .select('*')
+        .eq('student_id', studentId)
+        .order('match_score', { ascending: false })
+
+      if (matchError) throw matchError
 
       setPrograms(data || [])
-    } catch (error: any) {
-      notifications.show({
-        title: 'Erreur',
-        message: error.message,
-        color: 'red',
-      })
+    } catch (err) {
+      console.error('Erreur chargement matches:', err)
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleApply = async (programId: string, matchScore: number) => {
-    try {
-      const { error } = await supabase.from('applications').insert({
-        student_id: userId,
-        program_id: programId,
-        match_score: matchScore,
-        status: 'pending',
-      })
-
-      if (error) throw error
-
-      notifications.show({
-        title: 'Candidature envoyée',
-        message: 'Votre candidature a été enregistrée',
-        color: 'green',
-      })
-    } catch (error: any) {
-      if (error.code === '23505') {
-        notifications.show({
-          title: 'Déjà candidaté',
-          message: 'Vous avez déjà postulé à cette formation',
-          color: 'orange',
-        })
-      } else {
-        notifications.show({
-          title: 'Erreur',
-          message: error.message,
-          color: 'red',
-        })
-      }
-    }
+  if (loading) {
+    return (
+      <Stack align="center" p="xl">
+        <Loader size="lg" />
+        <Text>Analyse des compatibilités...</Text>
+      </Stack>
+    )
   }
 
-  if (loading) {
-    return <Text>Chargement des formations...</Text>
+  if (error) {
+    return (
+      <Alert icon={<IconAlertCircle size={16} />} color="red">
+        {error}
+      </Alert>
+    )
   }
 
   if (programs.length === 0) {
     return (
-      <Paper withBorder shadow="md" p={30} radius="md">
-        <Title order={3} mb="md">
-          Formations compatibles
-        </Title>
-        <Text c="dimmed">
-          Aucune formation trouvée. Veuillez d'abord enregistrer vos résultats académiques.
-        </Text>
-      </Paper>
+      <Alert icon={<IconAlertCircle size={16} />} color="blue">
+        Aucune formation compatible trouvée. Complétez votre profil pour obtenir des recommandations.
+      </Alert>
     )
   }
 
+  const eligiblePrograms = programs.filter(p => p.is_eligible)
+  const ineligiblePrograms = programs.filter(p => !p.is_eligible)
+
   return (
-    <Paper withBorder shadow="md" p={30} radius="md">
-      <Title order={3} mb="md">
-        Formations compatibles ({programs.length})
-      </Title>
+    <Stack gap="lg">
+      <Group justify="space-between">
+        <Title order={2}>Formations compatibles</Title>
+        <Badge size="lg" variant="light">
+          {eligiblePrograms.length} éligible{eligiblePrograms.length > 1 ? 's' : ''}
+        </Badge>
+      </Group>
 
+      {eligiblePrograms.length > 0 && (
+        <>
+          <Title order={3} c="green">✅ Formations éligibles</Title>
+          <SimpleGrid cols={{ base: 1, md: 2 }}>
+            {eligiblePrograms.map(program => (
+              <ProgramCard
+                key={program.program_id}
+                program={program}
+                onApply={onApply}
+              />
+            ))}
+          </SimpleGrid>
+        </>
+      )}
+
+      {ineligiblePrograms.length > 0 && (
+        <>
+          <Title order={3} c="orange" mt="xl">⚠️ Formations non éligibles</Title>
+          <SimpleGrid cols={{ base: 1, md: 2 }}>
+            {ineligiblePrograms.map(program => (
+              <ProgramCard
+                key={program.program_id}
+                program={program}
+                onApply={onApply}
+              />
+            ))}
+          </SimpleGrid>
+        </>
+      )}
+    </Stack>
+  )
+}
+
+// ✅ COMPOSANT CARTE PROGRAMME
+function ProgramCard({ 
+  program, 
+  onApply 
+}: { 
+  program: ProgramMatch
+  onApply: (programId: string, matchScore: number) => void 
+}) {
+  const matchPercentage = Math.min(100, Math.round(program.match_score))
+
+  return (
+    <Paper shadow="sm" p="lg" withBorder>
       <Stack gap="md">
-        {programs.map((program) => (
-          <Paper key={program.program_id} withBorder p="md" radius="md">
-            <Group justify="space-between" mb="sm">
-              <div>
-                <Text fw={700} size="lg">
-                  {program.program_name}
-                </Text>
-                <Text size="sm" c="dimmed">
-                  {program.school_name} • {program.school_location}
-                </Text>
-                {program.level && (
-                  <Badge size="sm" mt={5}>
-                    {program.level}
-                  </Badge>
-                )}
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <Text size="xl" fw={700} c={program.requirements_met ? 'green' : 'orange'}>
-                  {program.match_score}%
-                </Text>
-                <Text size="xs" c="dimmed">
-                  Compatibilité
-                </Text>
-              </div>
+        <Group justify="space-between" align="flex-start">
+          <div style={{ flex: 1 }}>
+            <Group gap="xs" mb="xs">
+              <IconSchool size={20} />
+              <Text fw={700} size="lg">{program.program_name}</Text>
             </Group>
-
-            <Progress
-              value={program.match_score}
-              color={program.requirements_met ? 'green' : 'orange'}
-              size="sm"
-              mb="sm"
-            />
-
-            {!program.requirements_met && program.missing_requirements.length > 0 && (
-              <Paper bg="red.0" p="xs" radius="sm" mb="sm">
-                <Text size="sm" fw={500} mb={5}>
-                  Critères non remplis :
-                </Text>
-                <List size="sm">
-                  {program.missing_requirements.map((req, idx) => (
-                    <List.Item key={idx}>{req}</List.Item>
-                  ))}
-                </List>
-              </Paper>
-            )}
-
-            <Group justify="flex-end">
-              <Button
-                variant={program.requirements_met ? 'filled' : 'outline'}
-                onClick={() => handleApply(program.program_id, program.match_score)}
-              >
-                {program.requirements_met ? 'Candidater' : 'Candidater quand même'}
-              </Button>
+            <Text size="sm" c="dimmed">{program.school_name}</Text>
+            <Group gap="xs" mt="xs">
+              <IconMapPin size={16} />
+              <Text size="sm">{program.location}</Text>
             </Group>
-          </Paper>
-        ))}
+          </div>
+
+          <RingProgress
+            size={80}
+            thickness={8}
+            sections={[{ value: matchPercentage, color: program.is_eligible ? 'green' : 'orange' }]}
+            label={
+              <Text size="xs" ta="center" fw={700}>
+                {matchPercentage}%
+              </Text>
+            }
+          />
+        </Group>
+
+        <Badge
+          size="lg"
+          variant="light"
+          color={program.is_eligible ? 'green' : 'orange'}
+          fullWidth
+        >
+          {program.is_eligible ? '✓ Éligible' : '⚠️ Non éligible'}
+        </Badge>
+
+        <Accordion variant="contained">
+          <Accordion.Item value="details">
+            <Accordion.Control>Détails de compatibilité</Accordion.Control>
+            <Accordion.Panel>
+              <Text size="sm" c="dimmed" mb="sm">
+                Score: {program.match_data.obtained_points}/{program.match_data.total_points} points
+              </Text>
+
+              <Text fw={500} mt="md">Critères évalués:</Text>
+              <List>
+                {program.match_data.details.map((detail, index) => (
+                  <List.Item
+                    key={index}
+                    icon={
+                      <ThemeIcon
+                        color={detail.status === 'passed' ? 'green' : 'red'}
+                        size={24}
+                        radius="xl"
+                      >
+                        {detail.status === 'passed' ? <IconCheck size={16} /> : <IconX size={16} />}
+                      </ThemeIcon>
+                    }
+                  >
+                    <Group justify="space-between">
+                      <div>
+                        <Text fw={500}>{detail.criterion}</Text>
+                        {detail.required && detail.obtained && (
+                          <Text size="xs" c="dimmed">
+                            Requis: {detail.required}/20 | Obtenu: {detail.obtained}/20
+                          </Text>
+                        )}
+                      </div>
+                      <Badge color={detail.status === 'passed' ? 'green' : 'red'}>
+                        {Math.round(detail.points)} pts
+                      </Badge>
+                    </Group>
+                  </List.Item>
+                ))}
+              </List>
+            </Accordion.Panel>
+          </Accordion.Item>
+        </Accordion>
+
+        {!program.is_eligible && program.match_data.missing_requirements.length > 0 && (
+          <Alert color="orange" title="Critères non remplis">
+            <Stack gap="xs">
+              {program.match_data.missing_requirements.map((req, idx) => (
+                <Group key={idx} justify="space-between">
+                  <Text size="sm" fw={500}>{req.criterion}</Text>
+                  {req.required && req.obtained && (
+                    <Badge color="orange" variant="light">
+                      {req.obtained}/{req.required}
+                    </Badge>
+                  )}
+                </Group>
+              ))}
+            </Stack>
+          </Alert>
+        )}
+
+        <Button
+          fullWidth
+          variant={program.is_eligible ? 'filled' : 'light'}
+          onClick={() => onApply(program.program_id, program.match_score)}
+        >
+          {program.is_eligible ? 'Candidater' : 'Candidater quand même'}
+        </Button>
       </Stack>
     </Paper>
   )

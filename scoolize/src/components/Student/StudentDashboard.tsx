@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Paper, Title, SimpleGrid, Text, Badge, Group, Stack } from '@mantine/core'
+import { Paper, Title, SimpleGrid, Text, Stack, Loader, Alert } from '@mantine/core'
+import { IconAlertCircle } from '@tabler/icons-react'
 import { supabase } from '@/lib/supabase'
 
 interface DashboardStats {
@@ -8,6 +9,8 @@ interface DashboardStats {
   acceptedApplications: number
   rejectedApplications: number
   averageMatchScore: number
+  eligiblePrograms: number
+  totalPrograms: number
 }
 
 interface StudentDashboardProps {
@@ -21,34 +24,82 @@ export function StudentDashboard({ userId }: StudentDashboardProps) {
     acceptedApplications: 0,
     rejectedApplications: 0,
     averageMatchScore: 0,
+    eligiblePrograms: 0,
+    totalPrograms: 0,
   })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadStats()
   }, [userId])
 
   const loadStats = async () => {
-    const { data, error } = await supabase
-      .from('applications')
-      .select('*')
-      .eq('student_id', userId)
+    try {
+      setLoading(true)
+      setError(null)
 
-    if (data && !error) {
-      const stats: DashboardStats = {
-        totalApplications: data.length,
-        pendingApplications: data.filter((app) => app.status === 'pending').length,
-        acceptedApplications: data.filter((app) => app.status === 'accepted').length,
-        rejectedApplications: data.filter((app) => app.status === 'rejected').length,
-        averageMatchScore:
-          data.length > 0
-            ? data.reduce((sum, app) => sum + (app.match_score || 0), 0) / data.length
-            : 0,
-      }
-      setStats(stats)
+      // Stats des candidatures
+      const { data: applications, error: appError } = await supabase
+        .from('applications')
+        .select('*')
+        .eq('student_id', userId)
+
+      if (appError) throw appError
+
+      // Stats des formations compatibles (nouvelle vue)
+      const { data: programs, error: progError } = await supabase
+        .from('student_program_matches')
+        .select('match_score, is_eligible')
+        .eq('student_id', userId)
+
+      if (progError) throw progError
+
+      const eligibleCount = programs?.filter(p => p.is_eligible).length || 0
+      const avgScore = programs && programs.length > 0
+        ? programs.reduce((sum, p) => sum + p.match_score, 0) / programs.length
+        : 0
+
+      setStats({
+        totalApplications: applications?.length || 0,
+        pendingApplications: applications?.filter(app => app.status === 'pending').length || 0,
+        acceptedApplications: applications?.filter(app => app.status === 'accepted').length || 0,
+        rejectedApplications: applications?.filter(app => app.status === 'rejected').length || 0,
+        averageMatchScore: avgScore,
+        eligiblePrograms: eligibleCount,
+        totalPrograms: programs?.length || 0,
+      })
+    } catch (err: any) {
+      console.error('Erreur:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
+  if (loading) {
+    return (
+      <Stack align="center" py="xl">
+        <Loader size="lg" />
+        <Text>Chargement...</Text>
+      </Stack>
+    )
+  }
+
+  if (error) {
+    return (
+      <Alert icon={<IconAlertCircle size={16} />} title="Erreur" color="red">
+        {error}
+      </Alert>
+    )
+  }
+
   const statCards = [
+    {
+      title: 'Formations éligibles',
+      value: `${stats.eligiblePrograms}/${stats.totalPrograms}`,
+      color: 'green',
+    },
     {
       title: 'Total candidatures',
       value: stats.totalApplications,
@@ -64,11 +115,6 @@ export function StudentDashboard({ userId }: StudentDashboardProps) {
       value: stats.acceptedApplications,
       color: 'green',
     },
-    {
-      title: 'Compatibilité moyenne',
-      value: stats.averageMatchScore.toFixed(0) + '%',
-      color: 'violet',
-    },
   ]
 
   return (
@@ -78,11 +124,9 @@ export function StudentDashboard({ userId }: StudentDashboardProps) {
       <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
         {statCards.map((card) => (
           <Paper key={card.title} withBorder shadow="sm" p="md" radius="md">
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
-                {card.title}
-              </Text>
-            </Group>
+            <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
+              {card.title}
+            </Text>
             <Text size="xl" fw={700} mt="md">
               {card.value}
             </Text>
