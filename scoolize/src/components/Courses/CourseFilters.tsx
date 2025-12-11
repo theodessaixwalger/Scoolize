@@ -59,10 +59,18 @@ export function CourseFilters({ filters, onChange }: CourseFiltersProps) {
                             label="Niveau d'études"
                             placeholder="Sélectionner un niveau"
                             data={[
+<<<<<<< HEAD
                                 { value: 'Master', label: 'Master' },
                                 { value: 'Bachelor', label: 'Bachelor' },
                                 { value: 'BTS', label: 'BTS' },
                                 { value: 'Doctorat', label: 'Doctorat' },
+=======
+                                { value: 'Licence', label: 'Licence' },
+                                { value: 'Master', label: 'Master' },
+                                { value: 'Bachelor', label: 'Bachelor' },
+                                { value: 'BTS', label: 'BTS' },
+                                { value: 'BUT', label: 'BUT' },
+>>>>>>> 17f421c61dd62de5977b118e8bf06fe1911dbe4c
                             ]}
                             value={filters.level}
                             onChange={(value) => handleChange('level', value)}
