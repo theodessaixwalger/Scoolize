@@ -17,15 +17,17 @@ import { useState } from 'react'
 export interface CourseFiltersState {
     search: string
     level: string | null
+    region: string | null
     minScore: number
 }
 
 interface CourseFiltersProps {
     filters: CourseFiltersState
     onChange: (filters: CourseFiltersState) => void
+    availableRegions: string[]
 }
 
-export function CourseFilters({ filters, onChange }: CourseFiltersProps) {
+export function CourseFilters({ filters, onChange, availableRegions }: CourseFiltersProps) {
     const [opened, setOpened] = useState(false)
 
     const handleChange = (key: keyof CourseFiltersState, value: any) => {
@@ -55,19 +57,31 @@ export function CourseFilters({ filters, onChange }: CourseFiltersProps) {
 
                 <Collapse in={opened}>
                     <Stack gap="md">
-                        <Select
-                            label="Niveau d'études"
-                            placeholder="Sélectionner un niveau"
-                            data={[
-                                { value: 'Master', label: 'Master' },
-                                { value: 'Bachelor', label: 'Bachelor' },
-                                { value: 'BTS', label: 'BTS' },
-                                { value: 'Doctorat', label: 'Doctorat' },
-                            ]}
-                            value={filters.level}
-                            onChange={(value) => handleChange('level', value)}
-                            clearable
-                        />
+                        <Group grow>
+                            <Select
+                                label="Niveau d'études"
+                                placeholder="Sélectionner un niveau"
+                                data={[
+                                    { value: 'Master', label: 'Master' },
+                                    { value: 'Bachelor', label: 'Bachelor' },
+                                    { value: 'BTS', label: 'BTS' },
+                                    { value: 'Doctorat', label: 'Doctorat' },
+                                ]}
+                                value={filters.level}
+                                onChange={(value) => handleChange('level', value)}
+                                clearable
+                            />
+
+                            <Select
+                                label="Région"
+                                placeholder="Sélectionner une région"
+                                data={availableRegions.map(region => ({ value: region, label: region }))}
+                                value={filters.region}
+                                onChange={(value) => handleChange('region', value)}
+                                clearable
+                                searchable
+                            />
+                        </Group>
 
                         <Box>
                             <Text size="sm" fw={500} mb="xs">Note moyenne minimale requise: {filters.minScore}/20</Text>
